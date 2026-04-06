@@ -74,6 +74,10 @@ const Navbar = ({ onLoginClick }: { onLoginClick: () => void }) => (
   </nav>
 );
 
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot } from "firebase/firestore";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { db, auth } from "./firebase";
+
 const Hero = () => (
   <section className="relative max-w-7xl mx-auto px-8 min-h-[90vh] flex items-center pt-24 pb-32">
     {/* Background decorative elements */}
@@ -304,20 +308,14 @@ const ContactForm = () => {
     setStatus({ type: "loading", message: "Đang gửi..." });
 
     try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+      await addDoc(collection(db, "contacts"), {
+        ...formData,
+        timestamp: serverTimestamp()
       });
-      const data = await res.json();
-
-      if (res.ok) {
-        setStatus({ type: "success", message: data.message });
-        setFormData({ name: "", email: "", phone: "", message: "" });
-      } else {
-        setStatus({ type: "error", message: data.error });
-      }
+      setStatus({ type: "success", message: "Gửi tin nhắn thành công!" });
+      setFormData({ name: "", email: "", phone: "", message: "" });
     } catch (error) {
+      console.error("Error saving contact:", error);
       setStatus({ type: "error", message: "Lỗi kết nối server." });
     }
   };
@@ -457,7 +455,7 @@ const ContactForm = () => {
 };
 
 const LoginPage = ({ onLoginSuccess, onBack }: { onLoginSuccess: (token: string) => void, onBack: () => void }) => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -468,20 +466,12 @@ const LoginPage = ({ onLoginSuccess, onBack }: { onLoginSuccess: (token: string)
     setError("");
 
     try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        onLoginSuccess(data.token);
-      } else {
-        setError(data.error);
-      }
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const token = await userCredential.user.getIdToken();
+      onLoginSuccess(token);
     } catch (err) {
-      setError("Lỗi kết nối server.");
+      console.error("Login Error:", err);
+      setError("Email hoặc mật khẩu không đúng.");
     } finally {
       setLoading(false);
     }
@@ -517,10 +507,10 @@ const LoginPage = ({ onLoginSuccess, onBack }: { onLoginSuccess: (token: string)
               <div className="relative">
                 <input 
                   className="w-full bg-transparent border-b-2 border-slate-200 py-3 px-1 text-lg font-medium focus:outline-none focus:border-primary transition-all duration-300" 
-                  type="text" 
-                  placeholder="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  type="email" 
+                  placeholder="admin@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
                 <User className="absolute right-0 bottom-3 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" />
@@ -565,20 +555,28 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
   useEffect(() => {
-    fetchContacts();
-  }, []);
-
-  const fetchContacts = async () => {
-    try {
-      const res = await fetch("/api/contacts");
-      const data = await res.json();
-      setContacts(data);
-    } catch (err) {
-      console.error("Failed to fetch contacts");
-    } finally {
+    const q = query(collection(db, "contacts"), orderBy("timestamp", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const contactsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name,
+          phone: data.phone,
+          email: data.email,
+          message: data.message,
+          timestamp: data.timestamp?.toDate().toISOString() || new Date().toISOString()
+        } as Contact;
+      });
+      setContacts(contactsData);
       setLoading(false);
-    }
-  };
+    }, (err) => {
+      console.error("Failed to fetch contacts:", err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleExportCSV = () => {
     if (contacts.length === 0) return;
