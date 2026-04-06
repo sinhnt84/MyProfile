@@ -74,9 +74,9 @@ const Navbar = ({ onLoginClick }: { onLoginClick: () => void }) => (
   </nav>
 );
 
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot } from "firebase/firestore";
+import { ref, push, serverTimestamp as rtdbServerTimestamp, onValue, query as rtdbQuery, orderByChild } from "firebase/database";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { db, auth } from "./firebase";
+import { db, rtdb, auth } from "./firebase";
 
 const Hero = () => (
   <section className="relative max-w-7xl mx-auto px-8 min-h-[90vh] flex items-center pt-24 pb-32">
@@ -308,15 +308,25 @@ const ContactForm = () => {
     setStatus({ type: "loading", message: "Đang gửi..." });
 
     try {
-      await addDoc(collection(db, "contacts"), {
-        ...formData,
-        timestamp: serverTimestamp()
-      });
+      // Thêm timeout 10 giây để tránh form bị treo vĩnh viễn
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Lỗi Timeout: Không thể kết nối đến Database. Vui lòng kiểm tra lại mạng hoặc trình chặn quảng cáo.")), 10000)
+      );
+
+      const contactsRef = ref(rtdb, 'contacts');
+      await Promise.race([
+        push(contactsRef, {
+          ...formData,
+          timestamp: rtdbServerTimestamp()
+        }),
+        timeoutPromise
+      ]);
+
       setStatus({ type: "success", message: "Gửi tin nhắn thành công!" });
       setFormData({ name: "", email: "", phone: "", message: "" });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving contact:", error);
-      setStatus({ type: "error", message: "Lỗi kết nối server." });
+      setStatus({ type: "error", message: error.message || "Lỗi kết nối server." });
     }
   };
 
@@ -555,20 +565,23 @@ const Dashboard = ({ onLogout }: { onLogout: () => void }) => {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, "contacts"), orderBy("timestamp", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const contactsData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          name: data.name,
-          phone: data.phone,
-          email: data.email,
-          message: data.message,
-          timestamp: data.timestamp?.toDate().toISOString() || new Date().toISOString()
-        } as Contact;
-      });
-      setContacts(contactsData);
+    const contactsRef = rtdbQuery(ref(rtdb, 'contacts'), orderByChild('timestamp'));
+    
+    const unsubscribe = onValue(contactsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        // Chuyển đổi object thành array và sắp xếp mới nhất lên đầu
+        const contactsData = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key],
+          // Xử lý timestamp của RTDB (thường là số milliseconds)
+          timestamp: data[key].timestamp ? new Date(data[key].timestamp).toISOString() : new Date().toISOString()
+        })).reverse();
+        
+        setContacts(contactsData);
+      } else {
+        setContacts([]);
+      }
       setLoading(false);
     }, (err) => {
       console.error("Failed to fetch contacts:", err);
