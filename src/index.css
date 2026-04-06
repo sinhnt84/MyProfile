@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap');
+
+@theme {
+  --font-headline: "Inter Tight", sans-serif;
+  --font-body: "Inter Tight", sans-serif;
+  
+  --color-primary: #610011;
+  --color-primary-container: #8b001d;
+  --color-secondary: #785a02;
+  --color-secondary-container: #fed578;
+  --color-surface: #f8f9fb;
+  --color-surface-container: #eceef0;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #594140;
+  --color-on-secondary-container: #291800;
+}
+
+body {
+  @apply bg-surface text-on-surface font-body selection:bg-secondary-container selection:text-on-secondary-container;
+}
+
+.ease-out-expo {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
