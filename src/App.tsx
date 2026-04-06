@@ -497,7 +497,7 @@ const LoginPage = ({ onLoginSuccess, onBack }: { onLoginSuccess: (token: string)
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-lg bg-white/60 backdrop-blur-3xl rounded-xl shadow-2xl border border-white/40 p-12 md:p-16 relative z-10"
+        className="w-full max-w-xl bg-white/60 backdrop-blur-3xl rounded-xl shadow-2xl border border-white/40 p-8 sm:p-12 md:p-16 relative z-10"
       >
         <button onClick={onBack} className="absolute top-6 left-6 text-slate-400 hover:text-primary transition-colors">
           <ChevronLeft className="w-6 h-6" />
@@ -506,7 +506,7 @@ const LoginPage = ({ onLoginSuccess, onBack }: { onLoginSuccess: (token: string)
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-6 shadow-lg shadow-primary/20">
             <Library className="text-white w-8 h-8" />
           </div>
-          <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary mb-3 tracking-tight">Đăng Nhập Hệ Thống</h1>
+          <h1 className="font-headline text-2xl sm:text-3xl md:text-4xl font-bold text-primary mb-3 tracking-tight whitespace-nowrap">Đăng Nhập Hệ Thống</h1>
           <p className="font-headline italic text-lg text-on-surface-variant">Xác thực danh tính</p>
         </div>
 
